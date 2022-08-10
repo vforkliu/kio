@@ -14,6 +14,7 @@
 namespace KIO
 {
 // The slave keeper manages the list of idle slaves that can be reused
+// 管理空闲的 slave
 class SlaveKeeper : public QObject
 {
     Q_OBJECT
@@ -76,7 +77,9 @@ public:
     QList<KIO::Slave *> allSlaves() const;
 
 private:
+    // 处于排队状态的Job
     QMap<int, KIO::SimpleJob *> m_queuedJobs;
+    // 正在运行的Job
     QSet<KIO::SimpleJob *> m_runningJobs;
 };
 

@@ -327,6 +327,7 @@ void ConnectedSlaveQueue::startRunnableJobs()
         }
         it = m_runnableSlaves.erase(it);
         PerSlaveQueue &jobs = m_connectedSlaves[slave];
+        // 从等待列表里取出一个
         SimpleJob *job = jobs.waitingList.takeFirst();
         Q_ASSERT(!jobs.runningJob);
         jobs.runningJob = job;
@@ -531,6 +532,7 @@ void ProtoQueue::removeJob(SimpleJob *job)
 
 Slave *ProtoQueue::createSlave(const QString &protocol, SimpleJob *job, const QUrl &url)
 {
+    qCInfo(KIO_CORE) << "protocol:" << protocol;
     int error;
     QString errortext;
     Slave *slave = Slave::createSlave(protocol, url, error, errortext);
@@ -621,6 +623,7 @@ void ProtoQueue::startAJob()
         SimpleJobPrivate *jobPriv = SimpleJobPrivate::get(startingJob);
         if (!slave) {
             isNewSlave = true;
+            // 创建新的slave
             slave = createSlave(jobPriv->m_protocol, startingJob, jobPriv->m_url);
         }
 
@@ -1115,6 +1118,7 @@ void SchedulerPrivate::setupSlave(KIO::Slave *slave,
     const QString host = url.host();
     const QString user = url.userName();
     const QString passwd = url.password();
+    qCInfo(KIO_CORE) << "host:" << host << ",port:" << port;
 
     if (newSlave || slave->host() != host || slave->port() != port || slave->user() != user || slave->passwd() != passwd) {
         MetaData configData = metaDataFor(protocol, proxyList, url);

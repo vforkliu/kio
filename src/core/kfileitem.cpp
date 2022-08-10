@@ -60,9 +60,12 @@ public:
         , m_bSkipMimeTypeFromContent(mimeTypeDetermination == KFileItem::SkipMimeTypeFromContent)
         , m_bInitCalled(false)
     {
+        // qCInfo(KIO_CORE) << "KFileItemPrivate::ctor";
         if (entry.count() != 0) {
+            // qCInfo(KIO_CORE) << "KFileItemPrivate::ctor: readUDSEntry";
             readUDSEntry(urlIsDirectory);
         } else {
+            // qCInfo(KIO_CORE) << "url:" << itemOrDirUrl;
             Q_ASSERT(!urlIsDirectory);
             m_strName = itemOrDirUrl.fileName();
             m_strText = KIO::decodeFileName(m_strName);

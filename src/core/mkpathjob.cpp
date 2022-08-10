@@ -33,6 +33,7 @@ public:
 #else
         const QString startPath = QLatin1String("/");
 #endif
+        // baseUrl 表示这些目录已经创建了，如果baseUrl不是url的祖先，忽略baseUrl
         m_url.setPath(startPath);
         int i = 0;
         for (; i < basePathComponents.count() && i < m_pathComponents.count(); ++i) {

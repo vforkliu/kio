@@ -120,6 +120,7 @@ void SlaveInterface::calcSpeed()
     }
 }
 
+// 从slave获取数据，分发給application
 bool SlaveInterface::dispatch(int _cmd, const QByteArray &rawdata)
 {
     Q_D(SlaveInterface);

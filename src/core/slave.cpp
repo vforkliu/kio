@@ -524,12 +524,14 @@ Slave *Slave::createSlave(const QString &protocol, const QUrl &url, int &error, 
         }
 
         qint64 pid = 0;
+        // 启动进程
         QProcess::startDetached(kioslaveExecutable, args, QString(), &pid);
         slave->setPID(pid);
 
         return slave;
     }
 
+    // klauncher创建进程
     QString errorStr;
 #ifndef KIO_ANDROID_STUB
     QDBusReply<int> reply = klauncher()->requestSlave(protocol, url.host(), slaveAddress.toString(), errorStr);

@@ -236,6 +236,7 @@ public:
     static inline SimpleJob *newJob(const QUrl &url, int command, const QByteArray &packedArgs, JobFlags flags = HideProgressInfo)
     {
         SimpleJob *job = new SimpleJob(*new SimpleJobPrivate(url, command, packedArgs));
+        // 设置UiDelegate
         job->setUiDelegate(KIO::createDefaultJobUiDelegate());
         if (!(flags & HideProgressInfo)) {
             KIO::getJobTracker()->registerJob(job);

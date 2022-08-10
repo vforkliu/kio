@@ -275,7 +275,9 @@ KService::List KFileItemActions::associatedApplications(const QStringList &mimeT
 static KService::Ptr preferredService(const QString &mimeType, const QStringList &excludedDesktopEntryNames, const QString &constraint)
 {
     KService::List services;
+    qDebug() << "preferredService constraint:" << constraint;
     if (constraint.isEmpty()) {
+        qDebug() << "preferredService constraint empty";
         services = KApplicationTrader::queryByMimeType(mimeType, [&](const KService::Ptr &serv) {
             return !excludedDesktopEntryNames.contains(serv->desktopEntryName());
         });
@@ -287,6 +289,7 @@ static KService::Ptr preferredService(const QString &mimeType, const QStringList
         QT_WARNING_PUSH
         QT_WARNING_DISABLE_CLANG("-Wdeprecated-declarations")
         QT_WARNING_DISABLE_GCC("-Wdeprecated-declarations")
+        qDebug() << "preferredService KMimeTypeTrader query ...";
         services = KMimeTypeTrader::self()->query(mimeType, QStringLiteral("Application"), constraint);
         QT_WARNING_POP
     }
@@ -360,8 +363,11 @@ void KFileItemActions::runPreferredApplications(const KFileItemList &fileOpenLis
 
 void KFileItemActionsPrivate::openWithByMime(const KFileItemList &fileItems)
 {
+    // 多个item 对应 多个mimetype
+    // 但其中一部分item可能对应一个mimetype
     const QStringList mimeTypeList = listMimeTypes(fileItems);
     for (const QString &mimeType : mimeTypeList) {
+        // mimeItems 表示mimetype相同的items
         KFileItemList mimeItems;
         for (const KFileItem &item : fileItems) {
             if (item.mimetype() == mimeType) {
@@ -399,6 +405,7 @@ void KFileItemActionsPrivate::slotOpenWithDialog()
 
 QStringList KFileItemActionsPrivate::listMimeTypes(const KFileItemList &items)
 {
+    // 去重后的mimetype list
     QStringList mimeTypeList;
     for (const KFileItem &item : items) {
         if (!mimeTypeList.contains(item.mimetype())) {
@@ -411,11 +418,15 @@ QStringList KFileItemActionsPrivate::listMimeTypes(const KFileItemList &items)
 QStringList
 KFileItemActionsPrivate::listPreferredServiceIds(const QStringList &mimeTypeList, const QStringList &excludedDesktopEntryNames, const QString &traderConstraint)
 {
+    qDebug() << "listPreferredServiceIds mimeTypeList:" << mimeTypeList;
+    qDebug() << "listPreferredServiceIds excludedDesktopEntryNames:" << excludedDesktopEntryNames;
+    qDebug() << "listPreferredServiceIds traderConstraint:" << traderConstraint;
     QStringList serviceIdList;
     serviceIdList.reserve(mimeTypeList.size());
     for (const QString &mimeType : mimeTypeList) {
         const KService::Ptr serv = preferredService(mimeType, excludedDesktopEntryNames, traderConstraint);
         serviceIdList << (serv ? serv->storageId() : QString()); // empty string means mimetype has no associated apps
+        qDebug() << "listPreferredServiceIds mimeType:" << mimeType << ",storageId:" << (serv ? serv->storageId() : QString());
     }
     serviceIdList.removeDuplicates();
     return serviceIdList;
@@ -430,6 +441,7 @@ QAction *KFileItemActionsPrivate::createAppAction(const KService::Ptr &service, 
         actionName = i18nc("@item:inmenu Open With, %1 is application name", "%1", actionName);
     }
 
+    qDebug() << "createAppAction:" << actionName;
     QAction *act = new QAction(q);
     act->setObjectName(QStringLiteral("openwith")); // for the unittest
     act->setIcon(QIcon::fromTheme(service->icon()));
@@ -591,6 +603,7 @@ QPair<int, QMenu *> KFileItemActionsPrivate::addServiceActionsTo(QMenu *mainMenu
     const QMimeDatabase db;
     const QStringList files = serviceMenuFilePaths();
     for (const QString &file : files) {
+        qDebug() << "serviceMenuFilePath:" << file;
         const KDesktopFile desktopFile(file);
         const KConfigGroup cfg = desktopFile.desktopGroup();
 
@@ -605,10 +618,12 @@ QPair<int, QMenu *> KFileItemActionsPrivate::addServiceActionsTo(QMenu *mainMenu
 
             const QString priority = cfg.readEntry("X-KDE-Priority");
             const QString submenuName = cfg.readEntry("X-KDE-Submenu");
-
+            qDebug() << "X-KDE-Priority:" << priority;
+            qDebug() << "X-KDE-Submenu:" << submenuName;
             ServiceList &list = s.selectList(priority, submenuName);
             const ServiceList userServices = KDesktopFileActions::userDefinedServices(KService(file), isLocal, urlList);
             for (const KServiceAction &action : userServices) {
+                qDebug() << "KServiceAction:" << action.name();
                 if (showGroup.readEntry(action.name(), true) && !excludeList.contains(action.name())) {
                     list += action;
                 }
@@ -647,6 +662,7 @@ QPair<int, QMenu *> KFileItemActionsPrivate::addServiceActionsTo(QMenu *mainMenu
 
 int KFileItemActionsPrivate::addPluginActionsTo(QMenu *mainMenu, QMenu *actionsMenu, const QStringList &excludeList)
 {
+    qDebug() << "KFileItemActionsPrivate::addPluginActionsTo start ...";
     QString commonMimeType = m_props.mimeType();
     if (commonMimeType.isEmpty() && m_props.isFile()) {
         commonMimeType = QStringLiteral("application/octet-stream");
@@ -660,15 +676,20 @@ int KFileItemActionsPrivate::addPluginActionsTo(QMenu *mainMenu, QMenu *actionsM
     const QMimeDatabase db;
     const auto jsonPlugins = KPluginMetaData::findPlugins(QStringLiteral("kf5/kfileitemaction"), [&db, commonMimeType](const KPluginMetaData &metaData) {
         auto mimeType = db.mimeTypeForName(commonMimeType);
+        qDebug() << "mimeType:" << mimeType;
+        qDebug() << "commonMimeType:" << commonMimeType;
         const QStringList list = metaData.mimeTypes();
         return std::any_of(list.constBegin(), list.constEnd(), [mimeType](const QString &supportedMimeType) {
             return mimeType.inherits(supportedMimeType);
         });
     });
 
+    // qDebug() << "jsonPlugins:" << jsonPlugins;
     for (const auto &jsonMetadata : jsonPlugins) {
         // The plugin has been disabled
+        // qDebug() << "jsonMetadata:" << jsonMetadata;
         const QString pluginId = jsonMetadata.pluginId();
+        qDebug() << "pluginId:" << pluginId;
         if (!showGroup.readEntry(pluginId, true) || excludeList.contains(pluginId)) {
             continue;
         }
@@ -676,6 +697,7 @@ int KFileItemActionsPrivate::addPluginActionsTo(QMenu *mainMenu, QMenu *actionsM
         KAbstractFileItemActionPlugin *abstractPlugin = m_loadedPlugins.value(pluginId);
         if (!abstractPlugin) {
             abstractPlugin = KPluginFactory::instantiatePlugin<KAbstractFileItemActionPlugin>(jsonMetadata, this).plugin;
+            qDebug() << "insert plugin:" << pluginId;
             m_loadedPlugins.insert(pluginId, abstractPlugin);
         }
         if (abstractPlugin) {
@@ -683,6 +705,9 @@ int KFileItemActionsPrivate::addPluginActionsTo(QMenu *mainMenu, QMenu *actionsM
             const QList<QAction *> actions = abstractPlugin->actions(m_props, m_parentWidget);
             itemCount += actions.count();
             const QString showInSubmenu = jsonMetadata.value(QStringLiteral("X-KDE-Show-In-Submenu"));
+            for (auto action : actions) {
+                qDebug() << "action:" << action->text();
+            }
             if (showInSubmenu == QLatin1String("true")) {
                 actionsMenu->addActions(actions);
             } else {
@@ -736,12 +761,15 @@ int KFileItemActionsPrivate::addPluginActionsTo(QMenu *mainMenu, QMenu *actionsM
 KService::List
 KFileItemActionsPrivate::associatedApplications(const QStringList &mimeTypeList, const QString &traderConstraint, const QStringList &excludedDesktopEntryNames)
 {
+    qDebug() << "associatedApplications mimeTypeList:" << mimeTypeList;
+    qDebug() << "associatedApplications traderConstraint:" << traderConstraint;
     if (!KAuthorized::authorizeAction(QStringLiteral("openwith")) || mimeTypeList.isEmpty()) {
         return KService::List();
     }
 
     KService::List firstOffers;
     if (traderConstraint.isEmpty()) {
+        qDebug() << "associatedApplications traderConstraint isEmpty";
         firstOffers = KApplicationTrader::queryByMimeType(mimeTypeList.first(), [excludedDesktopEntryNames](const KService::Ptr &service) {
             return !excludedDesktopEntryNames.contains(service->desktopEntryName());
         });
@@ -752,6 +780,7 @@ KFileItemActionsPrivate::associatedApplications(const QStringList &mimeTypeList,
         QT_WARNING_PUSH
         QT_WARNING_DISABLE_CLANG("-Wdeprecated-declarations")
         QT_WARNING_DISABLE_GCC("-Wdeprecated-declarations")
+        qDebug() << "associatedApplications deprecated";
         firstOffers = KMimeTypeTrader::self()->query(mimeTypeList.first(), QStringLiteral("Application"), traderConstraint);
         QT_WARNING_POP
     }
@@ -836,6 +865,8 @@ void KFileItemActionsPrivate::insertOpenWithActionsTo(QAction *before,
         return;
     }
 
+    qDebug() << "insertOpenWithActionsTo excludedDesktopEntryNames:" << excludedDesktopEntryNames;
+    qDebug() << "insertOpenWithActionsTo traderConstraint:" << traderConstraint;
     m_traderConstraint = traderConstraint;
     // TODO Overload with excludedDesktopEntryNames, but this method in public API and will be handled in a new MR
     KService::List offers = associatedApplications(m_mimeTypeList, traderConstraint, excludedDesktopEntryNames);
@@ -853,12 +884,13 @@ void KFileItemActionsPrivate::insertOpenWithActionsTo(QAction *before,
         return;
     }
 
+    // 每一个mimeType对应的storageId
     QStringList serviceIdList = listPreferredServiceIds(m_mimeTypeList, excludedDesktopEntryNames, traderConstraint);
 
     // When selecting files with multiple MIME types, offer either "open with <app for all>"
     // or a generic <open> (if there are any apps associated).
-    if (m_mimeTypeList.count() > 1 && !serviceIdList.isEmpty()
-        && !(serviceIdList.count() == 1 && serviceIdList.first().isEmpty())) { // empty means "no apps associated"
+    if (m_mimeTypeList.count() > 1 // 选择多个文件
+        && !serviceIdList.isEmpty() && !(serviceIdList.count() == 1 && serviceIdList.first().isEmpty())) { // empty means "no apps associated"
 
         QAction *runAct = new QAction(this);
         if (serviceIdList.count() == 1) {
